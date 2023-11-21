@@ -46,17 +46,23 @@ tasks.named('test') {
 }
 
 // QueryDSL Start
+
+// querydsl directory path
 def querydslDir = "src/main/generated"
 
+// querydsl directory를 자동 임포트 할 수 있게 설정
 sourceSets {
     main.java.srcDirs += [ querydslDir ]
 }
 
+// task 중 compileJava를 실행하면 Q파일들을 생성
 tasks.withType(JavaCompile) {
     options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
 }
 
+// clean을 하면 querydsl directory를 삭제
 clean.doLast {
     file(querydslDir).deleteDir()
 }
+
 // QueryDSL End
