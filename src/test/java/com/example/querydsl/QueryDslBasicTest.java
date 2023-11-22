@@ -211,7 +211,8 @@ public class QueryDslBasicTest {
     @Test
     public void theta_join() {
         em.persist(new Member("teamA"));
-        em.persist(new Member("teamB"));;
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
 
         // 세타조인을 하려면 이렇게 from 절에 조인하고자 하는 테이블을 여러개 넣으면 된다.
         List<Member> result =
@@ -221,10 +222,47 @@ public class QueryDslBasicTest {
                         .where(member.username.eq(team.name))
                         .fetch();
 
+        for (Member member1 : result) {
+            System.out.println("member1 = " + member1);
+        }
+
         assertThat(result)
                 .extracting("username")
                 .containsExactly("teamA", "teamB");
     }
 
+    @Test
+    public void join_on_filtering() {
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team) // 이렇게 넣으면, 흔히 알고있는 member.team_id = team.id 가 걸리는 것
+                .on(team.name.eq("teamA"))
+                .fetch();
 
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    /**
+     * ON JOIN
+     * */
+    @Test
+    public void on_join() {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        em.persist(new Member("teamC"));
+
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team) // 이렇게 하나만 넣으면 id랑 상관없이 on 조건으로 조인을 하여 가져온다 (left join 이니까 Team이 없거나 조건에 해당하지 않아 null 값인것도 가져옴)
+                .on(member.username.eq(team.name))
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
 }
