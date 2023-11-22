@@ -1,9 +1,11 @@
 package com.example.querydsl;
 
 import com.example.querydsl.entity.Member;
+import com.example.querydsl.entity.QMember;
 import com.example.querydsl.entity.QTeam;
 import com.example.querydsl.entity.Team;
 import com.querydsl.core.Tuple;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -304,5 +306,75 @@ public class QueryDslBasicTest {
         boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
 
         assertTrue(loaded);
+    }
+
+    @Test
+    public void subQuery() {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(
+                                JPAExpressions
+                                        .select(memberSub.age.max())
+                                        .from(memberSub)
+                        )
+                ).fetch();
+
+        assertThat(result).extracting("age").containsExactly(40);
+    }
+
+    @Test
+    public void subQueryGoe() {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.goe(
+                                JPAExpressions
+                                        .select(memberSub.age.avg())
+                                        .from(memberSub)
+                        )
+                ).fetch();
+
+        assertThat(result).extracting("age").containsExactly(30, 40);
+    }
+
+    @Test
+    public void subQueryIn() {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.in(
+                                JPAExpressions
+                                        .select(memberSub.age)
+                                        .from(memberSub)
+                                        .where(memberSub.age.gt(10))
+                        )
+                ).fetch();
+
+        assertThat(result).extracting("age").containsExactly(20, 30, 40);
+    }
+
+    /**
+     * 참고로 서브쿼리는 이 JPQL이 FROM절에서는 지원하지 않기 때문에 Querydsl에서도 못쓴다.
+     * */
+    @Test
+    public void selectSubQuery() {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Tuple> result = queryFactory
+                .select(member.username,
+                        JPAExpressions
+                                .select(memberSub.age.avg())
+                                .from(memberSub))
+                .from(member)
+                .fetch();
+
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
     }
 }
