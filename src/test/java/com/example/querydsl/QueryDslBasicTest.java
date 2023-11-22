@@ -1,8 +1,9 @@
 package com.example.querydsl;
 
 import com.example.querydsl.entity.Member;
+import com.example.querydsl.entity.QTeam;
 import com.example.querydsl.entity.Team;
-import com.querydsl.jpa.impl.JPAQuery;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import static com.example.querydsl.entity.QMember.*;
+import static com.example.querydsl.entity.QTeam.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -122,5 +124,65 @@ public class QueryDslBasicTest {
         assertEquals(member1.getUsername(), "member1");
         assertEquals(member2.getUsername(), "member2");
         assertNull(member3.getUsername());
+    }
+
+    @Test
+    public void paging1() {
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetch();
+
+        int totalCount = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .fetch()
+                .size();
+
+        System.out.println("totalCount = " + totalCount);
+
+        assertEquals(result.size(), 2);
+    }
+
+    @Test
+    public void aggregation() {
+        List<Tuple> result = queryFactory
+                .select(
+                        member.count(),
+                        member.age.sum(),
+                        member.age.avg(),
+                        member.age.max(),
+                        member.age.min())
+                .from(member)
+                .fetch();
+
+        Tuple tuple = result.get(0);
+
+        assertEquals(tuple.get(member.count()), 4);
+        assertEquals(tuple.get(member.age.sum()), 100);
+        assertEquals(tuple.get(member.age.avg()), 25);
+        assertEquals(tuple.get(member.age.max()), 40);
+        assertEquals(tuple.get(member.age.min()), 10);
+    }
+
+    @Test
+    public void groupBy() {
+        List<Tuple> result = queryFactory
+                .select(team.name, member.age.avg())
+                .from(member)
+                .join(member.team, team)
+                .groupBy(team.name)
+                .fetch();
+
+        Tuple teamA = result.get(0);
+        Tuple teamB = result.get(1);
+
+        assertEquals(teamA.get(team.name), "teamA");
+        assertEquals(teamA.get(member.age.avg()), 15);
+
+        assertEquals(teamB.get(team.name), "teamB");
+        assertEquals(teamB.get(member.age.avg()), 35);
     }
 }
