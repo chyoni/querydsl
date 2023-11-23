@@ -1,10 +1,14 @@
 package com.example.querydsl;
 
+import com.example.querydsl.dto.MemberDto;
+import com.example.querydsl.dto.UserDto;
 import com.example.querydsl.entity.Member;
 import com.example.querydsl.entity.QMember;
 import com.example.querydsl.entity.QTeam;
 import com.example.querydsl.entity.Team;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -446,6 +450,106 @@ public class QueryDslBasicTest {
 
             System.out.println("username = " + username);
             System.out.println("age = " + age);
+        }
+    }
+
+    @Test
+    public void findDtoByJPQL() {
+        List<MemberDto> result = em
+                .createQuery(
+                        "SELECT new com.example.querydsl.dto.MemberDto(m.username, m.age) " +
+                        "FROM Member m",
+                        MemberDto.class)
+                .getResultList();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    @Test
+    public void findDtoByQueryDslSetter() {
+        // bean 방식은 객체를 만들고 그 객체의 setter로 데이터를 넣어주는 방식
+        // setter를 사용하기 때문에 필드명이 일치해야 함
+        List<MemberDto> result = queryFactory
+                .select(Projections.bean(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    @Test
+    public void findDtoByQueryDslField() {
+        // fields 방식은 객체를 만들고 그 객체의 field에 직접 데이터를 넣어주는 방식
+        // field에 직접 접근하기 때문에 필드명이 일치해야 함
+        List<MemberDto> result = queryFactory
+                .select(Projections.fields(MemberDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    @Test
+    public void findDtoByQueryDslConstructor() {
+        // constructor 방식은 생성자를 사용해서 객체를 만들고 돌려주는 방식
+        // 그래서 생성자에 들어가는 타입과 파라미터 개수가 중요.
+        List<UserDto> result = queryFactory
+                .select(Projections.constructor(UserDto.class,
+                        member.username,
+                        member.age))
+                .from(member)
+                .fetch();
+
+        for (UserDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    @Test
+    public void findDtoByQueryDslFieldAs() {
+        // fields 방식은 객체를 만들고 그 객체의 field에 직접 데이터를 넣어주는 방식
+        // field에 직접 접근하기 때문에 필드명이 일치해야 하므로 username을 name으로 치환해야함
+        List<UserDto> result = queryFactory
+                .select(Projections.fields(UserDto.class,
+                        member.username.as("name"),
+                        member.age))
+                .from(member)
+                .fetch();
+
+        for (UserDto userDto : result) {
+            System.out.println("userDto = " + userDto);
+        }
+    }
+
+    @Test
+    public void findDtoByQueryDslFieldAndSubQuery() {
+        QMember memberSub = new QMember("memberSub");
+
+        // Select절에 프로젝션으로 SubQuery를 사용할 때, DTO로 변환하는 과정에서 DTO가 가지고 있는 필드에 별칭에 넣어주는 방법은
+        // 다음처럼 ExpressionUtils를 사용한다.
+
+        List<UserDto> result = queryFactory
+                .select(Projections.fields(UserDto.class,
+                        member.username.as("name"),
+                        ExpressionUtils.as(JPAExpressions.
+                                select(memberSub.age.max())
+                                .from(memberSub),
+                        "age")))
+                .from(member)
+                .fetch();
+
+        for (UserDto userDto : result) {
+            System.out.println("userDto = " + userDto);
         }
     }
 }
