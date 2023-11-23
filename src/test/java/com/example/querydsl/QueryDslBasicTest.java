@@ -4,12 +4,10 @@ import com.example.querydsl.dto.MemberDto;
 import com.example.querydsl.dto.UserDto;
 import com.example.querydsl.entity.Member;
 import com.example.querydsl.entity.QMember;
-import com.example.querydsl.entity.QTeam;
 import com.example.querydsl.entity.Team;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
-import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
@@ -19,13 +17,12 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.PersistenceUnit;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
 import java.util.List;
 
 import static com.example.querydsl.entity.QMember.*;
@@ -49,6 +46,10 @@ public class QueryDslBasicTest {
     public void before() {
         queryFactory = new JPAQueryFactory(em);
 
+        List<Member> initialMembers = queryFactory.selectFrom(member).fetch();
+        System.out.println("initialMembers = " + initialMembers.size());
+        assertThat(initialMembers.size()).isEqualTo(0);
+
         Team teamA = new Team("teamA");
         Team teamB = new Team("teamB");
         em.persist(teamA);
@@ -64,6 +65,13 @@ public class QueryDslBasicTest {
         em.persist(member2);
         em.persist(member3);
         em.persist(member4);
+
+        em.flush();
+        em.clear();
+
+        List<Member> afterInitialMembers = queryFactory.selectFrom(member).fetch();
+        System.out.println("afterInitialMembers = " + afterInitialMembers.size());
+        assertThat(afterInitialMembers.size()).isEqualTo(4);
     }
 
     @Test
@@ -622,5 +630,69 @@ public class QueryDslBasicTest {
 
     private BooleanExpression allEq(String usernameCond, Integer ageCond) {
         return usernameEq(usernameCond).and(ageEq(ageCond));
+    }
+
+    @Test
+    public void bulkUpdate() {
+        long count = queryFactory
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();
+
+        // 벌크 연산은 영속성 컨텍스트와 무관하게 바로 DB에 쿼리를 날리기 때문에 벌크 연산 후 같은 트랜잭션 내에서 같은 데이터를 가져오는 경우
+        // 벌크 연산이 적용되지 않은 영속성 컨텍스트에 남아있는 1차 캐시의 데이터를 가져오기 때문에 반드시 영속성 컨텍스트를 초기화 해주어야 한다.
+        em.flush();
+        em.clear();
+
+        List<Member> afterUpdateMembers = queryFactory.selectFrom(member).fetch();
+        for (Member afterUpdateMember : afterUpdateMembers) {
+            System.out.println("afterUpdateMember = " + afterUpdateMember);
+        }
+    }
+
+    @Test
+    public void bulkAdd() {
+        long count = queryFactory
+                .update(member)
+                .set(member.age, member.age.add(1))
+                .execute();
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = queryFactory.selectFrom(member).fetch();
+        for (Member member1 : members) {
+            System.out.println("member1 = " + member1);
+        }
+    }
+
+    @Test
+    public void bulkMultiply() {
+        long count = queryFactory
+                .update(member)
+                .set(member.age, member.age.multiply(2))
+                .execute();
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = queryFactory.selectFrom(member).fetch();
+        for (Member member1 : members) {
+            System.out.println("member1 = " + member1);
+        }
+    }
+
+    @Test
+    public void bulkDelete() {
+        long count = queryFactory.delete(member).where(member.age.lt(18)).execute();
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = queryFactory.selectFrom(member).fetch();
+        for (Member member1 : members) {
+            System.out.println("member1 = " + member1);
+        }
     }
 }
