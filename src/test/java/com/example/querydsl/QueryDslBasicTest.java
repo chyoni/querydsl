@@ -415,4 +415,37 @@ public class QueryDslBasicTest {
             System.out.println("s = " + s);
         }
     }
+
+    @Test
+    public void simpleProjection() {
+        List<String> result = queryFactory
+                .select(member.username)
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+    /**
+     * Tuple 이라는 건 여러 데이터를 하나로 담아서 뽑아 사용할 수 있게 해주는 객체인데
+     * 이 녀석의 패키지가 querydsl이다. 즉, 리포지토리 레벨에서 튜플을 사용하는 건 괜찮아도 이것을 서비스 또는 더 나아가 컨트롤러에서까지
+     * 접근하게 하면 좋은 설계라고 할 수 없다. 그렇기 때문에 리포지토리 레벨에서만 가급적 사용하고 서비스나 컨트롤러에는 새로운 DTO로 반환해주어야 한다.
+     * */
+    @Test
+    public void tupleProjection() {
+        List<Tuple> result = queryFactory
+                .select(member.username, member.age)
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            String username = tuple.get(member.username);
+            Integer age = tuple.get(member.age);
+
+            System.out.println("username = " + username);
+            System.out.println("age = " + age);
+        }
+    }
 }
